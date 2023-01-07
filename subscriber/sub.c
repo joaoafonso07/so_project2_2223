@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define BUFFER_SUB_MAXSIZE 1025
+#define BUFFER_SUB_MAXSIZE 1024
 
 static void sig_handler(int sig){
 	if (sig == SIGINT) {
@@ -16,11 +16,12 @@ static void sig_handler(int sig){
 }
 
 int main(int argc, char **argv) {
+	/*
     (void)argc;
     (void)argv;
     fprintf(stderr, "usage: sub <register_pipe_name> <box_name>\n");
     WARN("unimplemented"); // TODO: implement
-
+	*/
 	char buffer[BUFFER_SUB_MAXSIZE];
 	int mCounter = 0;
 
@@ -34,7 +35,7 @@ int main(int argc, char **argv) {
     if(sscanf(argv[1], "%s", register_pipe_name) != 1 ||
         sscanf(argv[2], "%s", pipe_name) != 1 ||
 			sscanf(argv[3], "%s", box_name) != 1) {
-            	PANIC("incorrect comand to inicialize mbroker");
+            	PANIC("incorrect comand to inicialize subescribier");
             	return -1;
         }
 

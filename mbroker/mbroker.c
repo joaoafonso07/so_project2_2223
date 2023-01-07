@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "../producer-consumer/producer-consumer.h"
-#include <unistd.h>
+#include <unistd.h>     
 
 #define MAX_MESSAGE_SIZE 289
 
@@ -38,8 +38,10 @@ int main(int argc, char **argv) {
 
     if(sscanf(argv[2], "%d", &max_sessions) != 1) {
             PANIC("invalid comand to inicialize mbroker");
-            return -1;
+            return -1;        
         }
+
+    unlink(register_pipe_name);
 
     if(mkfifo(register_pipe_name, 0660) == -1) {
         PANIC("error creating register_pipe");
@@ -67,7 +69,7 @@ int main(int argc, char **argv) {
 
     while(1){
         uint8_t message[MAX_MESSAGE_SIZE];
-        int message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
+        ssize_t message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
             PANIC("error reading from register_pipe");
         } else if (message_size == 0) {
@@ -76,7 +78,7 @@ int main(int argc, char **argv) {
         } else {
             printf("received message: %s\n", message);
             handle_request(message);
-        }
+        } 
     }
 
     return -1;
