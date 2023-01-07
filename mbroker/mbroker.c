@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 
     while(1){
         uint8_t message[MAX_MESSAGE_SIZE];
-        int message_size = read(register_pipe_fd, message, MAX_MESSAGE_SIZE);
+        int message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
             PANIC("error reading from register_pipe");
         } else if (message_size == 0) {
