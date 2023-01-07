@@ -30,14 +30,14 @@ int main(int argc, char **argv) {
     WARN("unimplemented"); // TODO: implement
     */
     if(argc != 3){
-        PANIC("invalid comand creating mbroker")
+        PANIC("invalid comand to inicialize mbroker")
     }
-    char* register_pipe_name;
+
+    char* register_pipe_name = argv[1];
     int max_sessions;
 
-    if(sscanf(argv[1], "%s", register_pipe_name) != 1 ||
-        sscanf(argv[2], "%d", &max_sessions) != 1) {
-            PANIC("incorrect comand to inicialize mbroker");
+    if(sscanf(argv[2], "%d", &max_sessions) != 1) {
+            PANIC("invalid comand to inicialize mbroker");
             return -1;
         }
 
@@ -45,21 +45,36 @@ int main(int argc, char **argv) {
         PANIC("error creating register_pipe");
         return -1;
     }
+    printf("argv[1] = %s\n", register_pipe_name);
+    printf("argv[2] = %d\n", max_sessions);
 
-    int register_pipe_fd = open(register_pipe_name, O_RDONLY);
-    if(register_pipe_fd == -1){
+
+    int register_pipe_fd_r = open(register_pipe_name, O_RDONLY);
+    if(register_pipe_fd_r == -1){
         PANIC("error opening register_pipe");
         return -1;
     }
 
+    printf("hear\n");
+
+    /*this is a trick so the read never returns 0*/
+    int register_pipe_fd_w = open(register_pipe_name, O_WRONLY);
+    if(register_pipe_fd_w == -1) {
+        PANIC("error opening register_pipe");
+        return -1;
+    }
+
+
     while(1){
-        uint8_t message[MAX_MESSAGE_SIZE]; //perguntar ao prof sobre a formatacao da mensagem
+        uint8_t message[MAX_MESSAGE_SIZE];
         int message_size = read(register_pipe_fd, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
             PANIC("error reading from register_pipe");
         } else if (message_size == 0) {
+            WARN("register_pipe closed");
             break;
         } else {
+            printf("received message: %s\n", message);
             handle_request(message);
         }
     }
