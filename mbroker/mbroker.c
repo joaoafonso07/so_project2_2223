@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    while(1){
+    while(1){ // this is active waiting
         uint8_t message[MAX_MESSAGE_SIZE];
         int message_size = read(register_pipe_fd, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
