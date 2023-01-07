@@ -1,6 +1,10 @@
 #include "logging.h"
 #include <errno.h>
+#include <string.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <signal.h>
 
 #define BUFFER_SUB_MAXSIZE 1024
@@ -28,16 +32,10 @@ int main(int argc, char **argv) {
     if(argc != 4){
         PANIC("invalid comand creating subscriber")
     }
-    char* register_pipe_name;
-    char* pipe_name;
-	char* box_name;
+    char* register_pipe_name = argv[1];
+    char* pipe_name = argv[2];
+	//char* box_name = argv[3];
 
-    if(sscanf(argv[1], "%s", register_pipe_name) != 1 ||
-        sscanf(argv[2], "%s", pipe_name) != 1 ||
-			sscanf(argv[3], "%s", box_name) != 1) {
-            	PANIC("incorrect comand to inicialize subescribier");
-            	return -1;
-        }
 
 	//Create client pipe
     if(mkfifo(register_pipe_name, 0660) == -1) {
@@ -69,9 +67,11 @@ int main(int argc, char **argv) {
 	for(;;){
 		if(read(pclient, buffer, BUFFER_SUB_MAXSIZE) > 0){
 			mCounter++;
-			printf(buffer);
+			printf("%s\n", buffer);
 		}
-		write(pserver, buffer, BUFFER_SUB_MAXSIZE);
+		if(write(pserver, buffer, BUFFER_SUB_MAXSIZE) == -1){
+			WARN("failed to write: %s", strerror(errno));
+		}
 	}
 
 	printf("Number of messages: %d\n", mCounter);
