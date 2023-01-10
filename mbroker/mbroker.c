@@ -10,11 +10,39 @@
 #include "../producer-consumer/producer-consumer.h"
 #include <unistd.h>     
 
-#define MAX_MESSAGE_SIZE 289
+#define MAX_MESSAGE_SIZE 1025//289
 
 int handle_request(uint8_t *message){
-    switch(message[1]) {
+    switch(message[0]) {
         case 1: // send stuf to the pcq
+            printf("case 1\n"); //debug
+            break;
+        case 2: // send stuf to the pcq
+            printf("case 2\n"); //debug
+            break;
+        case 3: // send stuf to the pcq
+            printf("case 3\n"); //debug
+            break;
+        case 4: // send stuf to the pcq
+            printf("case 4\n"); //debug
+            break;
+        case 5: // send stuf to the pcq
+            printf("case 5\n"); //debug
+            break;
+        case 6: // send stuf to the pcq
+            printf("case 6\n"); //debug
+            break;
+        case 7: // send stuf to the pcq
+            printf("case 7\n"); //debug
+            break;
+        case 8: // send stuf to the pcq
+            printf("case 8\n"); //debug
+            break;
+        case 9: // send stuf to the pcq
+            printf("case 9\n"); //debug
+            break;
+        case 10: // send stuf to the pcq
+            printf("case 10\n"); //debug
             break;
         default:
             PANIC("invalid message code");
@@ -57,7 +85,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    printf("hear\n");
+    //printf("hear\n"); //debug
 
     /*this is a trick so the read never returns 0*/
     int register_pipe_fd_w = open(register_pipe_name, O_WRONLY);
@@ -76,7 +104,7 @@ int main(int argc, char **argv) {
             WARN("register_pipe closed");
             break;
         } else {
-            printf("received message: %s\n", message);
+            printf("received message: %s\n", message+1); //debug
             handle_request(message);
         } 
     }
