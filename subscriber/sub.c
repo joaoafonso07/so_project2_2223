@@ -37,11 +37,12 @@ int main(int argc, char **argv) {
 	//char* box_name = argv[3];
 
 
-	//Create client pipe
+	//Create client pipe                                 //afonso: aqui estás a criar o pipe de registro. o pipe de registro já foi criado no mbroker
     if(mkfifo(register_pipe_name, 0660) == -1) {
         PANIC("error creating register_pipe");
         return -1;
-    }
+    }                                                    //afonso: seria uma melhor ideia só criar o pipe do cliente (pipe_name) depois de enviar o pedido de inicio de sessão ao mbroker 
+													     // porque caso o pipe do mbroker não exista o programa não consegue proceder...
 
 	//Open client pipe
 	int pclient = open(register_pipe_name, O_WRONLY);
@@ -49,14 +50,16 @@ int main(int argc, char **argv) {
         WARN("failed to open named pipe: %s", strerror(errno));
         return -1;
     }
-	//Open server pipe
+	//Open server pipe                                    //afonso: acho que só trocaste 
 	int pserver = open(pipe_name, O_RDONLY);
     if(pserver == -1){
-        WARN("failed to open named pipe: %s", strerror(errno));
+        WARN("failed to open named pipe: %s", strerror(errno));  
         return -1;
     }
 
-	//TODO: Buscar mensagens todas do box_name para ele poder ler (acho que e preciso o pub estar feito)
+	//TODO: Buscar mensagens todas do box_name para ele poder ler (acho que e preciso o pub estar feito)  //afonso: isto é uma thread trabalhadora que vai escrever no pipe do subscriber (não é implementado aqui)
+
+	//afonso: TODO: enviar o pedido de inicio de sessão ao mbroker
 
 	//SIGNALS
   	if (signal(SIGINT, sig_handler) == SIG_ERR) {
