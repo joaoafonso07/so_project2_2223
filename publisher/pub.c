@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>  
+#include <unistd.h>
 
 #define MAX_PIPE_PATH_LEN 256
 #define MAX_BOX_NAME_LEN 32
@@ -42,9 +42,10 @@ int main(int argc, char **argv) {
 
 
     //printf("original_pipe_name size: %ld\n", strlen(original_pipe_name)); //debug
+	// O new_pipe = originnal_pipe_name + pid (8)
     snprintf(new_pipe_name, strlen(original_pipe_name) + 8, "%s%d", original_pipe_name, pid);
     //printf("new_pipe_name = %s\n", new_pipe_name); //debug
-    
+
     //printf("argv[1] = %s\n", register_pipe_name); //debug
     //printf("argv[2] = %s\n", original_pipe_name); //debug
     //printf("argv[3] = %s\n", box_name); //debug
@@ -55,7 +56,7 @@ int main(int argc, char **argv) {
     }
 
     /*buffer where we are going to put togheter a request to the mbroker*/
-    char request[1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN];
+    char request[1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN]/* = {0}*/;
 
     //printf("request 1: %s\n", request); //debug
 
@@ -79,27 +80,25 @@ int main(int argc, char **argv) {
         PANIC("debug");
     */
 
-    if(write(register_fd, request, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN) < 0){
+    if(write(register_fd, request, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN) < 0)
         PANIC("error writing request to register pipe")
-        return -1;
-    }
 
     close(register_fd);
-    
+
     unlink(new_pipe_name);
 
     if(mkfifo(new_pipe_name, 0660) == -1) {
         PANIC("error creating pub_pipe");
     }
-    
+
     int pub_fd = open(new_pipe_name, O_WRONLY);
     if(pub_fd == -1){
         PANIC("failed to open named pipe");
     }
-    
+
     char message[1 + MAX_MESSAGE_LEN];
     memcpy(message, &op_code9, sizeof(uint8_t));
-    
+
     for (;;){
         if(fgets(message + 1, MAX_MESSAGE_LEN, stdin) == NULL) //when receives EOF it returns NULL
             break;
