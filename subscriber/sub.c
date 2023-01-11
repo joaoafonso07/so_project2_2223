@@ -1,13 +1,16 @@
 #include "logging.h"
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <signal.h>
+#include <unistd.h>
 
-#define BUFFER_SUB_MAXSIZE 1024
+#define MAX_PIPE_PATH_LEN 256
+#define MAX_BOX_NAME_LEN 32
+#define MAX_MESSAGE_LEN 1024
 
 static void sig_handler(int sig){
 	if (sig == SIGINT) {
@@ -26,40 +29,63 @@ int main(int argc, char **argv) {
     fprintf(stderr, "usage: sub <register_pipe_name> <box_name>\n");
     WARN("unimplemented"); // TODO: implement
 	*/
-	char buffer[BUFFER_SUB_MAXSIZE];
-	int mCounter = 0;
+
 
     if(argc != 4){
         PANIC("invalid comand creating subscriber")
     }
+
+	uint8_t op_code2 = 2;
+	uint8_t op_code10 = 10;
+
+
     char* register_pipe_name = argv[1];
     char* pipe_name = argv[2];
-	//char* box_name = argv[3];
+	char* box_name = argv[3];
 
 
-	//Create client pipe                                 //afonso: aqui estás a criar o pipe de registro. o pipe de registro já foi criado no mbroker
-    if(mkfifo(register_pipe_name, 0660) == -1) {
-        PANIC("error creating register_pipe");
+	unlink(pipe_name);
+	//Create client pipe
+    if(mkfifo(pipe_name, 0660) == -1) {
+        PANIC("error creating pipe_name");
         return -1;
-    }                                                    //afonso: seria uma melhor ideia só criar o pipe do cliente (pipe_name) depois de enviar o pedido de inicio de sessão ao mbroker 
-													     // porque caso o pipe do mbroker não exista o programa não consegue proceder...
+    }
 
 	//Open client pipe
-	int pclient = open(register_pipe_name, O_WRONLY);
-    if(pclient == -1){
+	int register_fd = open(register_pipe_name, O_WRONLY);
+    if(register_fd == -1){
         WARN("failed to open named pipe: %s", strerror(errno));
         return -1;
     }
-	//Open server pipe                                    //afonso: acho que só trocaste 
-	int pserver = open(pipe_name, O_RDONLY);
-    if(pserver == -1){
-        WARN("failed to open named pipe: %s", strerror(errno));  
+
+
+	//afonso: TODO: enviar o pedido de inicio de sessão ao mbroker
+
+    /*buffer where we are going to put togheter a request to the mbroker*/
+    char request[1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN] = {0};
+
+	memcpy(request, &op_code2, sizeof(uint8_t)); //copy the code of the operation (1) to the start of the buffer
+
+    strncpy(request + 1, pipe_name, MAX_PIPE_PATH_LEN - 1);
+
+    strncpy(request + 1 + MAX_PIPE_PATH_LEN, box_name, MAX_BOX_NAME_LEN - 1);
+
+    if(write(register_fd, request, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN) < 0)
+        PANIC("error writing request to register pipe")
+
+	close(register_fd);
+
+
+	//Open server pipe
+	int sub_fd = open(pipe_name, O_RDONLY);
+    if(sub_fd == -1){
+        WARN("failed to open named pipe: %s", strerror(errno));
         return -1;
     }
 
-	//TODO: Buscar mensagens todas do box_name para ele poder ler (acho que e preciso o pub estar feito)  //afonso: isto é uma thread trabalhadora que vai escrever no pipe do subscriber (não é implementado aqui)
-
-	//afonso: TODO: enviar o pedido de inicio de sessão ao mbroker
+	char message[1 + MAX_MESSAGE_LEN];
+	int mCounter = 0;
+	memcpy(message, &op_code10, sizeof(uint8_t));
 
 	//SIGNALS
   	if (signal(SIGINT, sig_handler) == SIG_ERR) {
@@ -68,18 +94,18 @@ int main(int argc, char **argv) {
 
 	//Wait for new messages
 	for(;;){
-		if(read(pclient, buffer, BUFFER_SUB_MAXSIZE) > 0){
+		if(read(register_fd, message, MAX_MESSAGE_LEN) > 0){
 			mCounter++;
-			printf("%s\n", buffer);
+			printf("%s\n", message);
 		}
-		if(write(pserver, buffer, BUFFER_SUB_MAXSIZE) == -1){
+		if(write(sub_fd, message, MAX_MESSAGE_LEN) == -1){
 			WARN("failed to write: %s", strerror(errno));
 		}
 	}
 
 	printf("Number of messages: %d\n", mCounter);
-	close(pserver);
-	close(pclient);
+	close(sub_fd);
+
 
     return -1;
 }
