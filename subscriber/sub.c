@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 			mCounter++;
 			printf("%s\n", message);
 		}
-		if(write(sub_fd, message, MAX_MESSAGE_LEN) == -1){
+		if(write(sub_fd, message, 1+ MAX_MESSAGE_LEN) < 0){
 			WARN("failed to write: %s", strerror(errno));
 		}
 	}
