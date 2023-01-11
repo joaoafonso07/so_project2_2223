@@ -50,17 +50,23 @@ int main(int argc, char **argv) {
     //printf("argv[2] = %s\n", original_pipe_name); //debug
     //printf("argv[3] = %s\n", box_name); //debug
 
+    unlink(new_pipe_name);
+
+    if(mkfifo(new_pipe_name, 0660) == -1) {
+        PANIC("error creating pub_pipe");
+    }
+
     int register_fd = open(register_pipe_name, O_WRONLY);
     if(register_fd == -1){
-        PANIC("failed to open named pipe");
+        PANIC("failed to open register pipe");
     }
 
     /*buffer where we are going to put togheter a request to the mbroker*/
-    char request[1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN]/* = {0}*/;
+    char request[1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN] = {0};
 
     //printf("request 1: %s\n", request); //debug
 
-    memset(request, 0, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN); //puts all the buffer to '\0'
+    //memset(request, 0, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN); //puts all the buffer to '\0'
 
     //printf("request 2: %s\n", request); //debug
 
@@ -75,6 +81,7 @@ int main(int argc, char **argv) {
     strncpy(request + 1 + MAX_PIPE_PATH_LEN, box_name, MAX_BOX_NAME_LEN - 1);
 
     //printf("request 5: %s\n", request); //debug
+    
     /*
     if(write(1, request, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN) < 0)
         PANIC("debug");
@@ -85,18 +92,13 @@ int main(int argc, char **argv) {
 
     close(register_fd);
 
-    unlink(new_pipe_name);
-
-    if(mkfifo(new_pipe_name, 0660) == -1) {
-        PANIC("error creating pub_pipe");
-    }
 
     int pub_fd = open(new_pipe_name, O_WRONLY);
     if(pub_fd == -1){
         PANIC("failed to open named pipe");
     }
 
-    char message[1 + MAX_MESSAGE_LEN];
+    char message[1 + MAX_MESSAGE_LEN] = {0}; //inicializes the bufer to '\0'
     memcpy(message, &op_code9, sizeof(uint8_t));
 
     for (;;){
