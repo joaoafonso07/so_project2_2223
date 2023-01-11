@@ -94,11 +94,11 @@ int main(int argc, char **argv) {
 
 	//Wait for new messages
 	for(;;){
-		if(read(register_fd, message, MAX_MESSAGE_LEN) > 0){
+		if(read(register_fd, message, 1+ MAX_MESSAGE_LEN) > 0){
 			mCounter++;
 			printf("%s\n", message);
 		}
-		if(write(sub_fd, message, 1+ MAX_MESSAGE_LEN) < 0){
+		if(write(register_fd, message, 1+ MAX_MESSAGE_LEN) < 0){
 			WARN("failed to write: %s", strerror(errno));
 		}
 	}

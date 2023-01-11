@@ -25,12 +25,12 @@ void send_request(int register_fd, uint8_t code){
 }
 
 int main(int argc, char **argv) {
-    /*
+	/*
     (void)argc;
     (void)argv;
     print_usage();
     WARN("unimplemented"); // TODO: implement
-    */
+	*/
 
    if(argc != 4 || argc != 5)
     PANIC("invalid comand to launch a manager")
@@ -75,3 +75,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
