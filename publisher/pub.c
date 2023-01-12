@@ -31,8 +31,8 @@ int main(int argc, char **argv) {
 
     int pid = getpid();
 
-    printf("pid: %d\n", pid);
-    printf("pid size: %ld\n", sizeof(pid)/sizeof(int));
+    //printf("pid: %d\n", pid);
+    //printf("pid size: %ld\n", sizeof(pid)/sizeof(int));
 
     char *register_pipe_name = argv[1];
     char *original_pipe_name = argv[2];
@@ -113,6 +113,6 @@ int main(int argc, char **argv) {
 
     close(pub_fd);
     free(new_pipe_name);
-    
+
     return 0;
 }
