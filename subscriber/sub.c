@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     }
 
 	char message[1 + MAX_MESSAGE_LEN];
-	int mCounter = 0;
+	int m_counter = 0;
 	memcpy(message, &op_code10, sizeof(uint8_t));
 
 	//SIGNALS
@@ -94,18 +94,15 @@ int main(int argc, char **argv) {
 
 	//Wait for new messages
 	for(;;){
-		if(read(register_fd, message, 1+ MAX_MESSAGE_LEN) > 0){
-			mCounter++;
-			printf("%s\n", message);
+		if(read(sub_fd, message, 1+ MAX_MESSAGE_LEN) < 0){
+			PANIC("error reading from pub_name");
 		}
-		if(write(sub_fd, message, 1+ MAX_MESSAGE_LEN) < 0){
-			WARN("failed to write: %s", strerror(errno));
-		}
+		m_counter++;
+		fprintf(stdout, "%s\n", message);
+
 	}
-
-	printf("Number of messages: %d\n", mCounter);
+	fprintf(stdout, "%d\n", m_counter);
 	close(sub_fd);
-
 
     return -1;
 }
