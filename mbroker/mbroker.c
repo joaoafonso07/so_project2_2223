@@ -8,47 +8,88 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "../producer-consumer/producer-consumer.h"
-#include <unistd.h>     
+#include <unistd.h>   
+#include"../fs/operations.h"
+#include"../fs/state.h"
+#include"../fs/config.h"
+
 
 #define MAX_MESSAGE_SIZE 1025//289
+#define MAX_PIPE_PATH_LEN 256
+#define MAX_BOX_NAME_LEN 32
+#define MAX_MESSAGE_LEN 1024
+#define UINT8_T_SIZE 1
+#define INT32_T_SIZE 4
+#define UINT64_T_SIZE 8
 
-int handle_request(uint8_t *message){
-    switch(message[0]) {
-        case 1: // send stuf to the pcq
-            printf("case 1\n"); //debug
+//handle the publisher request
+int handle_request_1(char *request){
+    char pub_pipe_name[MAX_PIPE_PATH_LEN];
+    char box_name[MAX_BOX_NAME_LEN];
+    
+    memcpy(pub_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
+    memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
+
+    int box_fd = tfs_open(box_name, TFS_O_APPEND);
+    if(box_fd == -1){
+        WARN("pub_request : box do not exist")                                                       //doubt
+        return -1;
+    }
+
+    int pub_fd = open(pub_pipe_name, O_RDONLY);
+    if(pub_fd == -1)
+        PANIC("mbroker : failed to open pub pipe"); //debuug
+
+    char message[UINT8_T_SIZE + MAX_MESSAGE_LEN];
+
+    while(1){
+        ssize_t message_size = read(pub_fd, message, UINT8_T_SIZE + MAX_MESSAGE_LEN);
+        if(message_size == -1) {
+            WARN("error reading from pub_pipe");
+            return -1;
+        } else if (message_size == 0) {
+            WARN("pub_pipe closed");
             break;
-        case 2: // send stuf to the pcq
+        } else {
+            if(message[0] != 9){ //op_code = 9
+                WARN("invalid message from pub");
+                return -1;
+            }
+            printf("message to box = %s\n", message + 1);
+            if(tfs_write(box_fd, message + UINT8_T_SIZE, MAX_MESSAGE_LEN) == -1){
+                WARN("error writing in box");
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int handle_request_general(char *message){
+    switch(message[0]) {
+        case 1: // session request from publisher
+            printf("case 1\n"); //debug
+            handle_request_1(message);
+            break;
+        case 2: // session request from subscriber
             printf("case 2\n"); //debug
             break;
-        case 3: // send stuf to the pcq
+        case 3: // request from manager to create a box
             printf("case 3\n"); //debug
             break;
-        case 4: // send stuf to the pcq
-            printf("case 4\n"); //debug
-            break;
-        case 5: // send stuf to the pcq
+        case 5: // request from manager to remove a box
             printf("case 5\n"); //debug
             break;
-        case 6: // send stuf to the pcq
-            printf("case 6\n"); //debug
-            break;
-        case 7: // send stuf to the pcq
+        case 7: // request from manager to list boxes
             printf("case 7\n"); //debug
-            break;
-        case 8: // send stuf to the pcq
-            printf("case 8\n"); //debug
-            break;
-        case 9: // send stuf to the pcq
-            printf("case 9\n"); //debug
-            break;
-        case 10: // send stuf to the pcq
-            printf("case 10\n"); //debug
             break;
         default:
             PANIC("invalid message code");
     }
     return 0;
 }
+
+
 
 int main(int argc, char **argv) {
     /*
@@ -75,8 +116,9 @@ int main(int argc, char **argv) {
         PANIC("error creating register_pipe");
         return -1;
     }
-    printf("argv[1] = %s\n", register_pipe_name);
-    printf("argv[2] = %d\n", max_sessions);
+
+    // printf("argv[1] = %s\n", register_pipe_name); // debug
+    // printf("argv[2] = %d\n", max_sessions); // debug
 
 
     int register_pipe_fd_r = open(register_pipe_name, O_RDONLY);
@@ -96,7 +138,7 @@ int main(int argc, char **argv) {
 
 
     while(1){
-        uint8_t message[MAX_MESSAGE_SIZE];
+        char message[MAX_MESSAGE_SIZE] = {0};
         ssize_t message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
             PANIC("error reading from register_pipe");
@@ -104,10 +146,12 @@ int main(int argc, char **argv) {
             WARN("register_pipe closed");
             break;
         } else {
-            printf("received message: %s\n", message+1); //debug
-            handle_request(message);
-        } 
+            if(write(1, message, MAX_MESSAGE_SIZE) < 0)//debug
+                PANIC("mbroker: write debug"); 
+            printf("\n");
+            handle_request_general(message);
+        }
     }
 
-    return -1;
+    return 0;
 }
