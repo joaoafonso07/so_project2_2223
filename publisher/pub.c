@@ -112,5 +112,7 @@ int main(int argc, char **argv) {
     }
 
     close(pub_fd);
+    free(new_pipe_name);
+    
     return 0;
 }
