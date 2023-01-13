@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "../producer-consumer/producer-consumer.h"
-#include <unistd.h>   
+#include <unistd.h>
 #include"../fs/operations.h"
 #include"../fs/state.h"
 #include"../fs/config.h"
@@ -26,7 +26,7 @@
 int handle_request_1(char *request){
     char pub_pipe_name[MAX_PIPE_PATH_LEN];
     char box_name[MAX_BOX_NAME_LEN];
-    
+
     memcpy(pub_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
 
@@ -149,7 +149,7 @@ int main(int argc, char **argv) {
 
     if(sscanf(argv[2], "%d", &max_sessions) != 1) {
             PANIC("invalid comand to inicialize mbroker");
-            return -1;        
+            return -1;
         }
 
     unlink(register_pipe_name);

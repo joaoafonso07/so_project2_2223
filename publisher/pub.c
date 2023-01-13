@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     strncpy(request + 1 + MAX_PIPE_PATH_LEN, box_name, MAX_BOX_NAME_LEN - 1);
 
     //printf("request 5: %s\n", request); //debug
-    
+
     /*
     if(write(1, request, 1 + MAX_PIPE_PATH_LEN + MAX_BOX_NAME_LEN) < 0)
         PANIC("debug");
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
         if(fgets(message + 1, MAX_MESSAGE_LEN, stdin) == NULL) //when receives EOF it returns NULL
             break;
 
-
+		message[strlen(message) - 1] = 0;
         if(write(pub_fd, message, 1 + MAX_MESSAGE_LEN) < 0)
             PANIC("error writing request to  pub_pipe")
 
