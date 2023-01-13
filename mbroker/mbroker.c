@@ -43,6 +43,7 @@ int handle_request_1(char *request){
     char message[UINT8_T_SIZE + MAX_MESSAGE_LEN];
 
     while(1){
+
         ssize_t message_size = read(pub_fd, message, UINT8_T_SIZE + MAX_MESSAGE_LEN);
         if(message_size == -1) {
             WARN("error reading from pub_pipe");
@@ -63,6 +64,10 @@ int handle_request_1(char *request){
         }
     }
     return 0;
+}
+
+int handle_request_3(char *request){
+
 }
 
 int handle_request_general(char *message){
@@ -141,10 +146,9 @@ int main(int argc, char **argv) {
         char message[MAX_MESSAGE_SIZE] = {0};
         ssize_t message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
         if(message_size == -1) {
-            PANIC("error reading from register_pipe");
+            WARN("error reading from register_pipe");
         } else if (message_size == 0) {
-            WARN("register_pipe closed");
-            break;
+            PANIC("register_pipe closed"); //must not happen
         } else {
             if(write(1, message, MAX_MESSAGE_SIZE) < 0)//debug
                 PANIC("mbroker: write debug"); 
