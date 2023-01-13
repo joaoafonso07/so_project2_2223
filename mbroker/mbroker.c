@@ -71,6 +71,10 @@ int handle_request_1(char *request){
     return 0;
 }
 
+int handle_request_2(char *request){
+    
+}
+
 int handle_request_3(char *request){
     char manager_pipe_name[MAX_PIPE_PATH_LEN];
     char box_name[MAX_BOX_NAME_LEN];
