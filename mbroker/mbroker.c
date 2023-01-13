@@ -120,10 +120,10 @@ int handle_request_3(char *request){
     char error_message[MAX_MESSAGE_LEN] = {0};
     int32_t return_code;
     answer[0] = 4; //op_code
-
-	snprintf(path_box_name, MAX_BOX_NAME_LEN + 1, "/%s", box_name);
+	
     memcpy(manager_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
+    snprintf(path_box_name, MAX_BOX_NAME_LEN + 1, "/%s", box_name);
 
     int manager_fd = open(manager_pipe_name, O_WRONLY);
     if(manager_fd == -1)
@@ -131,7 +131,7 @@ int handle_request_3(char *request){
     int box_fd = tfs_open(path_box_name, TFS_O_CREAT);                                   //doubt - open modes
     if(box_fd == -1){
         WARN("failed to create box");
-
+        printf("again\n");
         return_code = -1;
         memcpy(answer, &return_code, INT32_T_SIZE);
         strncpy(answer + UINT8_T_SIZE + INT32_T_SIZE, error_message, MAX_MESSAGE_LEN - 1);   // doubt - error message????
@@ -192,6 +192,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "usage: mbroker <pipename>\n");
     WARN("unimplemented"); // TODO: implement
     */
+   
     if(argc != 3){
         PANIC("invalid comand to inicialize mbroker")
     }
@@ -202,7 +203,10 @@ int main(int argc, char **argv) {
     if(sscanf(argv[2], "%d", &max_sessions) != 1) {
             PANIC("invalid comand to inicialize mbroker");
             return -1;
-        }
+    }
+
+    if(tfs_init(NULL) == -1)
+        PANIC("failed to init the TFS");
 
     unlink(register_pipe_name);
 
