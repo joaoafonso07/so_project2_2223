@@ -98,9 +98,6 @@ WARN("unimplemented"); // TODO: implement
             PANIC("sub_pipe closed");
             break;
 		} else{
-        	if (message_size < 0) {
-            	PANIC("error reading from pub_name");
-        	}
         	m_counter++;
         	fprintf(stdout, "%s\n", message+1);
 		}
