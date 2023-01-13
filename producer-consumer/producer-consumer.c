@@ -2,6 +2,7 @@
 #include"producer-consumer.h"
 #include<pthread.h>
 #include<stdlib.h>
+#include"logging.h"
 
 /*returns 0 if sucessful, -1 otherwise*/
 int pcq_create(pc_queue_t *queue, size_t capacity){
