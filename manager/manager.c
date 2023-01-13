@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
         
         memcpy(&answer_op_code, answer, UINT8_T_SIZE);
 
-        if(answer_op_code != 4 || answer_op_code != 6)
+        if(answer_op_code != 4 && answer_op_code != 6)
             PANIC("manager : invalid answer")
         
         memcpy(&return_code, answer + UINT8_T_SIZE, INT32_T_SIZE);
