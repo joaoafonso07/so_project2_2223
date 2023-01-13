@@ -30,15 +30,15 @@ int handle_request_1(char *request){
     memcpy(pub_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
 
-    int box_fd = tfs_open(box_name, TFS_O_APPEND);
+    int box_fd = tfs_open(box_name, TFS_O_APPEND);                                   //doubt - open modes
     if(box_fd == -1){
-        WARN("pub_request : box do not exist")                                                       //doubt
+        WARN("pub_request : box do not exist")                                                       
         return -1;
     }
 
     int pub_fd = open(pub_pipe_name, O_RDONLY);
     if(pub_fd == -1)
-        PANIC("mbroker : failed to open pub pipe"); //debuug
+        PANIC("mbroker : failed to open pub pipe"); //debug  
 
     char message[UINT8_T_SIZE + MAX_MESSAGE_LEN];
 
@@ -63,17 +63,53 @@ int handle_request_1(char *request){
             }
         }
     }
+    
+    if(tfs_close(box_fd) == -1){
+        PANIC("error closing box");
+    }
+
     return 0;
 }
 
 int handle_request_3(char *request){
+    char manager_pipe_name[MAX_PIPE_PATH_LEN];
+    char box_name[MAX_BOX_NAME_LEN];
+    char answer[UINT8_T_SIZE + INT32_T_SIZE + MAX_MESSAGE_LEN] = {0}; //inicialize the buffer with '/0' 
+    char error_message[MAX_MESSAGE_LEN] = {0};
+    int32_t return_code;
+    answer[0] = 4; //op_code
 
+    int manager_fd = open(manager_pipe_name, O_WRONLY);
+    if(manager_fd == -1)
+        PANIC("failed to open manager pipe");//debug should be warn
+
+    memcpy(manager_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
+    memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
+
+    int box_fd = tfs_open(box_name, TFS_O_CREAT);                                   //doubt - open modes
+    if(box_fd == -1){
+        WARN("failed to create box");                                                       
+        
+        return_code = -1;
+        strncpy(answer + UINT8_T_SIZE, return_code, INT32_T_SIZE - 1);
+        strncpy(answer + UINT8_T_SIZE + INT32_T_SIZE, error_message, MAX_BOX_NAME_LEN - 1);   // doubt - error message????
+
+        if(write(manager_fd, answer, UINT8_T_SIZE + INT32_T_SIZE + MAX_BOX_NAME_LEN) < 0)
+            PANIC("error writing answer to manager pipe");
+
+        return -1;
+    }
+
+    if(tfs_close(box_fd) == -1){
+        PANIC("error closing box")
+    }
+    return 0;
 }
 
 int handle_request_general(char *message){
     switch(message[0]) {
         case 1: // session request from publisher
-            printf("case 1\n"); //debug
+            //printf("case 1\n"); //debug
             handle_request_1(message);
             break;
         case 2: // session request from subscriber
@@ -81,6 +117,7 @@ int handle_request_general(char *message){
             break;
         case 3: // request from manager to create a box
             printf("case 3\n"); //debug
+            handle_request_3(message);
             break;
         case 5: // request from manager to remove a box
             printf("case 5\n"); //debug
