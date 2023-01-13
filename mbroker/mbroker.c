@@ -72,7 +72,8 @@ int handle_request_1(char *request){
 }
 
 int handle_request_2(char *request){
-    
+    (void)request;
+    return 0;
 }
 
 int handle_request_3(char *request){
@@ -95,7 +96,7 @@ int handle_request_3(char *request){
         WARN("failed to create box");                                                       
         
         return_code = -1;
-        strncpy(answer + UINT8_T_SIZE, return_code, INT32_T_SIZE - 1);
+        memcpy(answer, &return_code, INT32_T_SIZE);
         strncpy(answer + UINT8_T_SIZE + INT32_T_SIZE, error_message, MAX_BOX_NAME_LEN - 1);   // doubt - error message????
 
         if(write(manager_fd, answer, UINT8_T_SIZE + INT32_T_SIZE + MAX_BOX_NAME_LEN) < 0)
@@ -103,6 +104,15 @@ int handle_request_3(char *request){
 
         return -1;
     }
+
+    return_code = 0;
+    memcpy(answer, &return_code, INT32_T_SIZE);
+    strncpy(answer + UINT8_T_SIZE + INT32_T_SIZE, error_message, MAX_BOX_NAME_LEN - 1);   // doubt - error message????
+
+    if(write(manager_fd, answer, UINT8_T_SIZE + INT32_T_SIZE + MAX_BOX_NAME_LEN) < 0)
+        PANIC("error writing answer to manager pipe");
+
+    return -1;
 
     if(tfs_close(box_fd) == -1){
         PANIC("error closing box")
