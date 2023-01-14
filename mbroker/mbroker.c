@@ -26,11 +26,13 @@
 int handle_request_1(char *request){
     char pub_pipe_name[MAX_PIPE_PATH_LEN];
     char box_name[MAX_BOX_NAME_LEN];
+	char path_box_name[MAX_BOX_NAME_LEN + 1];
 
     memcpy(pub_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
+	snprintf(path_box_name, MAX_BOX_NAME_LEN + 1, "/%s", box_name);
 
-    int box_fd = tfs_open(box_name, TFS_O_APPEND);                                   //doubt - open modes
+    int box_fd = tfs_open(path_box_name, TFS_O_APPEND);                                   //doubt - open modes
     if(box_fd == -1){
         WARN("pub_request : box do not exist")
         return -1;
@@ -49,6 +51,7 @@ int handle_request_1(char *request){
             WARN("error reading from pub_pipe");
             return -1;
         } else if (message_size == 0) {
+			printf("pipe_closed\n");
             WARN("pub_pipe closed");
             break;
         } else {
@@ -57,7 +60,10 @@ int handle_request_1(char *request){
                 return -1;
             }
             printf("message to box = %s\n", message + 1);
-            if(tfs_write(box_fd, message + UINT8_T_SIZE, MAX_MESSAGE_LEN) == -1){
+			printf("len = %ld\n", sizeof(message));
+			ssize_t size = tfs_write(box_fd, message + UINT8_T_SIZE, MAX_MESSAGE_LEN);
+			printf("%ld\n", size);
+			if(size == -1){
                 WARN("error writing in box");
                 return -1;
             }
@@ -65,48 +71,58 @@ int handle_request_1(char *request){
     }
 
     if(tfs_close(box_fd) == -1){
-        PANIC("error closing box");
+        PANIC("error closing box"); //debug
     }
-
+	printf("hear10\n");
     return 0;
 }
 
 int handle_request_2(char *request){
     char sub_pipe_name[MAX_PIPE_PATH_LEN];
     char box_name[MAX_BOX_NAME_LEN];
+	char path_box_name[MAX_BOX_NAME_LEN + 1];
+	fprintf(stdout, "hear\n");
 
     memcpy(sub_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
+	snprintf(path_box_name, MAX_BOX_NAME_LEN + 1, "/%s", box_name);
+	fprintf(stdout, "hear2\n");
 
-    int box_fd = tfs_open(box_name, 0);                                   //doubt - open modes
+    int box_fd = tfs_open(path_box_name, 0);                                   //doubt - open modes
     if(box_fd == -1){
         WARN("sub_request : box do not exist")
         return -1;
     }
-
+	fprintf(stdout, "hear3\n");
     int sub_fd = open(sub_pipe_name, O_WRONLY);
     if(sub_fd == -1)
         PANIC("mbroker : failed to open sub pipe"); //debug
 
 	char message[UINT8_T_SIZE + MAX_MESSAGE_LEN];
+	message[0] = 10; //op_code 10
 
 	while(1){
-        ssize_t message_size = read(box_fd, message, UINT8_T_SIZE + MAX_MESSAGE_LEN);
+		fprintf(stdout,"antesR\n");
+        ssize_t message_size = tfs_read(box_fd, message + UINT8_T_SIZE, MAX_MESSAGE_LEN);
+		fprintf(stdout,"apos\n");
         if(message_size == -1) {
-            WARN("error reading from sub_pipe");
+			printf("error reading from named box\n");
+            WARN("error reading from named box");
             return -1;
         } else if (message_size == 0) {
-            WARN("sub_pipe closed");
+			printf("no more messages to read\n");
+            WARN("no more messages to read");
             break;
         } else {
-			if(tfs_write(sub_fd, message + UINT64_T_SIZE, MAX_MESSAGE_LEN) == -1){
+			if(write(sub_fd, message, UINT8_T_SIZE + MAX_MESSAGE_LEN) == -1){
+					fprintf(stdout,"quaqua\n");
                 	WARN("error writing in sub");
                 	return -1;
 			}
 		}
 	}
 	if(tfs_close(box_fd) == -1){
-		PANIC("error closing box");
+		PANIC("error closing box"); //debug
 	}
 
     return 0;
@@ -120,7 +136,7 @@ int handle_request_3(char *request){
     char error_message[MAX_MESSAGE_LEN] = {0};
     int32_t return_code;
     answer[0] = 4; //op_code
-	
+
     memcpy(manager_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
     snprintf(path_box_name, MAX_BOX_NAME_LEN + 1, "/%s", box_name);
@@ -160,7 +176,7 @@ int handle_request_3(char *request){
 int handle_request_general(char *message){
     switch(message[0]) {
         case 1: // session request from publisher
-            //printf("case 1\n"); //debug
+            printf("case 1\n"); //debug
             handle_request_1(message);
             break;
         case 2: // session request from subscriber
@@ -192,7 +208,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "usage: mbroker <pipename>\n");
     WARN("unimplemented"); // TODO: implement
     */
-   
+
     if(argc != 3){
         PANIC("invalid comand to inicialize mbroker")
     }
