@@ -15,6 +15,8 @@
 
 static size_t  max_number_boxes;
 
+int actual_number_boxes = 0;
+
 #define MAX_MESSAGE_SIZE 1025//289
 #define MAX_PIPE_PATH_LEN 256
 #define MAX_BOX_NAME_LEN 32
@@ -25,8 +27,11 @@ static size_t  max_number_boxes;
 
 typedef struct{
     char box_name[MAX_BOX_NAME_LEN];
-    int has_publisher; //0 1 or -1(empty)
-    int numb_subs;
+    uint64_t has_publisher; //0 1
+    uint64_t n_subscribers;
+    uint64_t size;
+    int empty; //0(empty) 1(full)
+
 } box;
 
 box *box_table;
@@ -44,9 +49,9 @@ size_t get_box_index(char *box_name){
 /*returns 0 if successful, -1 otherwise*/
 int add_box(char *box_name){
     for(size_t i = 0; i < max_number_boxes; i++){ //searchs for the first empty index
-        if(box_table[i].has_publisher == -1 ){
+        if(box_table[i].empty == 0 ){
             memcpy(box_table[i].box_name, box_name, MAX_BOX_NAME_LEN);
-            box_table[i].has_publisher = 0;
+            box_table[i].empty = 1;
             return 0;
         }
     }
@@ -58,7 +63,7 @@ void remove_box(char *box_name){
     size_t i = get_box_index(box_name);
 
     memset(box_table[i].box_name, 0, MAX_BOX_NAME_LEN);
-    box_table[i].has_publisher = -1; //simbolizes empty index
+    box_table[i].empty = 0; //simbolizes empty index
 }
 
 
@@ -108,6 +113,7 @@ int handle_request_1(char *request){
 			printf("message_size = %ld\n", sizeof(message));
 			ssize_t size = tfs_write(box_fd, message + UINT8_T_SIZE, strlen(message + UINT8_T_SIZE) + 1); // +1 to write the last '/0'
 			printf("written = %ld\n", size);
+            box_table[get_box_index(box_name)].size += (uint64_t)size;
 			if(size == -1){
                 WARN("error writing in box");
                 return -1;
@@ -138,7 +144,7 @@ int handle_request_2(char *request){
         return -1;
     }
 
-    box_table[get_box_index(box_name)].numb_subs ++;
+    box_table[get_box_index(box_name)].n_subscribers ++;
 
     int sub_fd = open(sub_pipe_name, O_WRONLY);
     if(sub_fd == -1)
@@ -177,7 +183,7 @@ int handle_request_2(char *request){
 		PANIC("error closing box"); //debug
 	}
 
-    box_table[get_box_index(box_name)].numb_subs --;
+    box_table[get_box_index(box_name)].n_subscribers --;
 
     return 0;
 }
@@ -240,6 +246,8 @@ int handle_request_3(char *request){
 
     if(add_box(box_name))
         PANIC("error adding box to box_table(not suposed)") // open already fails if there are no more space for creting files
+    
+    actual_number_boxes ++;
 
     return 0;
 }
@@ -251,7 +259,7 @@ int handle_request_5(char *request){
     char answer[UINT8_T_SIZE + INT32_T_SIZE + MAX_MESSAGE_LEN] = {0}; //inicialize the buffer with '/0'
     char error_message[MAX_MESSAGE_LEN] = {0};
     int32_t return_code;
-    answer[0] = 4; //op_code
+    answer[0] = 6; //op_code
 
     memcpy(manager_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
     memcpy(box_name, request + UINT8_T_SIZE + MAX_PIPE_PATH_LEN, MAX_BOX_NAME_LEN);
@@ -294,14 +302,55 @@ int handle_request_5(char *request){
         PANIC("error writing answer to manager pipe");
 
     remove_box(box_name);
+    actual_number_boxes --;
 
     return 0;
 }
 
 
-int handle_request_7(char* message){
+int handle_request_7(char* request){
+    char manager_pipe_name[MAX_PIPE_PATH_LEN];
+    char answer[UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN + UINT64_T_SIZE + UINT64_T_SIZE + UINT64_T_SIZE] = {0}; //inicialize the buffer with '/0'
+    answer[0] = 8; //op_code
+    uint8_t last = 0;
 
+    memcpy(manager_pipe_name, request + UINT8_T_SIZE, MAX_PIPE_PATH_LEN);
+
+    int manager_fd = open(manager_pipe_name, O_WRONLY);
+        if(manager_fd == -1)
+            PANIC("failed to open manager pipe");//debug should be warn
+
+
+    int boxes_counter = 0;
+    for(size_t i = 0; i < max_number_boxes; i++) {
+        if(box_table[i].empty == 1){
+            boxes_counter ++;
+
+            uint64_t box_size = box_table[i].size;
+            uint64_t n_publishers = box_table[i].has_publisher;
+            uint64_t n_subscribers = box_table[i].n_subscribers;
+
+            if(boxes_counter == actual_number_boxes){
+                last = 1;
+            }
+
+            memcpy(answer + UINT8_T_SIZE, &last, UINT8_T_SIZE);
+            strncpy(answer + UINT8_T_SIZE + UINT8_T_SIZE, box_table[i].box_name, MAX_BOX_NAME_LEN);
+            memcpy(answer + UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN, &box_size, UINT64_T_SIZE);
+            memcpy(answer + UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN + UINT64_T_SIZE, &n_publishers, UINT64_T_SIZE);
+            memcpy(answer + UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN + UINT64_T_SIZE + UINT64_T_SIZE, &n_subscribers, UINT64_T_SIZE);
+
+            if(write(manager_fd, answer, UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN + UINT64_T_SIZE + UINT64_T_SIZE + UINT64_T_SIZE) == -1){
+                WARN("error writing in manager pipe");
+                return -1;
+			}
+            
+        }
+    }
+
+    return 0;
 }
+
 
 int handle_request_general(char *message){
     switch(message[0]) {
@@ -371,8 +420,10 @@ int main(int argc, char **argv) {
     /*inicializes the box table*/
     for (size_t i = 0; i < max_number_boxes; i++) {
         memset(box_table[i].box_name, 0, MAX_BOX_NAME_LEN);
-        box_table[i].has_publisher = -1; //simbolizes empty index
-        box_table[i].numb_subs = 0;
+        box_table[i].has_publisher = 0; //simbolizes empty index
+        box_table[i].n_subscribers = 0;
+        box_table[i].size = 0;
+        box_table[i].empty = 0;
     }
 
     unlink(register_pipe_name);
