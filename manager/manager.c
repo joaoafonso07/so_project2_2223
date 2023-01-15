@@ -149,6 +149,8 @@ int main(int argc, char **argv) {
                 if (answer_op_code != 8)
                     PANIC("manager : invalid answer")
                 
+                
+                
                 memcpy(&last, answer + UINT8_T_SIZE, UINT8_T_SIZE);
                 memcpy(box_name, answer + UINT8_T_SIZE + UINT8_T_SIZE, MAX_BOX_NAME_LEN);
                 memcpy(&box_size, answer + UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN, UINT64_T_SIZE);
@@ -157,8 +159,10 @@ int main(int argc, char **argv) {
 
                 fprintf(stdout, "%s %zu %zu %zu\n", box_name, box_size, n_publishers, n_subscribers);
                 
-                if(last == 0)
+                if(last == 1)
                     break;
+                
+                memset(answer, 0, UINT8_T_SIZE + UINT8_T_SIZE + MAX_BOX_NAME_LEN + UINT64_T_SIZE + UINT64_T_SIZE + UINT64_T_SIZE); 
             } 
         }
     }
