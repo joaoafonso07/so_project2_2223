@@ -36,6 +36,8 @@ typedef struct{
 
 box *box_table;
 
+pc_queue_t * pc_queue;
+
 /*returns the index of the box, -1 if it do not exist*/
 size_t get_box_index(char *box_name){
     for(size_t i = 0; i < max_number_boxes; i++){
@@ -89,7 +91,6 @@ int handle_request_1(char *request){
         PANIC("mbroker : failed to open pub pipe"); //debug
 
     char message[UINT8_T_SIZE + MAX_MESSAGE_LEN];
-    printf("hear\n");
 
     box_table[get_box_index(box_name)].has_publisher++; //box now have a publisher
 
@@ -100,7 +101,6 @@ int handle_request_1(char *request){
             WARN("error reading from pub_pipe");
             return -1;
         } else if (message_size == 0) {
-			printf("pipe_closed\n");
             box_table[get_box_index(box_name)].has_publisher--; //box don't have a publisher now
             WARN("pub_pipe closed");
             break;
@@ -109,10 +109,7 @@ int handle_request_1(char *request){
                 WARN("invalid message from pub");
                 return -1;
             }
-            printf("message to box = %s\n", message + 1);
-			printf("message_size = %ld\n", sizeof(message));
 			ssize_t size = tfs_write(box_fd, message + UINT8_T_SIZE, strlen(message + UINT8_T_SIZE) + 1); // +1 to write the last '/0'
-			printf("written = %ld\n", size);
             box_table[get_box_index(box_name)].size += (uint64_t)size;
 			if(size == -1){
                 WARN("error writing in box");
@@ -122,7 +119,7 @@ int handle_request_1(char *request){
     }
 
     if(tfs_close(box_fd) == -1){
-        PANIC("error closing box"); //debug
+        WARN("error closing box"); //debug
     }
 
     
@@ -158,18 +155,15 @@ int handle_request_2(char *request){
         char c;
         ssize_t message_size = tfs_read(box_fd, &c, sizeof(char));// read one character at a time
         if(message_size == -1) {
-			printf("error reading from named box\n"); //debug
             WARN("error reading from named box");
             return -1;
         } else if (message_size == 0) {
-			printf("no more messages to read"); //debug
             WARN("no more messages to read: %s", strerror(errno));        // when threads are working need to change this
             break;
         }else if (c != '\0') { // if the character is not a null character
             message[i] = c; // add the character to the buffer
             i++;
         } else {
-            printf("Message: %s\n", message + 1); // debug remember that ASCII 10 is Lf(Line feed(new line(\n)))
             if(write(sub_fd, message, UINT8_T_SIZE + MAX_MESSAGE_LEN) == -1){
                 WARN("error writing in sub");
                 return -1;
@@ -355,27 +349,22 @@ int handle_request_7(char* request){
 int handle_request_general(char *message){
     switch(message[0]) {
         case 1: // session request from publisher
-            printf("case 1\n"); //debug
             if(handle_request_1(message))
                 WARN("failed to handle request 1 (publisher)")
             break;
         case 2: // session request from subscriber
-            printf("case 2\n"); //debug
 			if(handle_request_2(message))
                 WARN("failed to handle request 2 (subscriber)")
             break;
         case 3: // request from manager to create a box
-            printf("case 3\n"); //debug
             if(handle_request_3(message))
                 WARN("failed to handle request 3 (manager-create)")
             break;
         case 5: // request from manager to remove a box
-            printf("case 5\n"); //debug
             if(handle_request_5(message))
                 WARN("failed to handle request 5 (manager-remove)")
             break;
         case 7: // request from manager to list boxes
-            printf("case 7\n"); //debug
             if(handle_request_7(message))
                 WARN("failed to handle request 7 (manager-list)")
             break;
@@ -385,39 +374,51 @@ int handle_request_general(char *message){
     return 0;
 }
 
+void *worker_thread(){
+    
+    while(1){
+        void *request = pcq_dequeue(pc_queue);
+        handle_request_general((char*)request); //not receiving what suposed
+    }
+    
+   return NULL;
+}
+
 
 
 int main(int argc, char **argv) {
-    /*
-    (void)argc;
-    (void)argv;
-    fprintf(stderr, "usage: mbroker <pipename>\n");
-    WARN("unimplemented"); // TODO: implement
-    */
+
+   /*-----Store Input-----*/
 
     if(argc != 3){
         PANIC("invalid comand to inicialize mbroker")
     }
 
     char* register_pipe_name = argv[1];
-    int max_sessions;
+    size_t max_sessions;
 
-    if(sscanf(argv[2], "%d", &max_sessions) != 1) {
+    if(sscanf(argv[2], "%lu", &max_sessions) != 1) {
             PANIC("invalid comand to inicialize mbroker");
             return -1;
     }
+
+    /*-----Init TFS-----*/
 
     if(tfs_init(NULL) == -1)
         PANIC("failed to init tfs")
 
     tfs_params param = tfs_default_params();
     max_number_boxes = param.max_inode_count;
-        
+
+
+    /*-----Init the box table-----*/
+
     box_table = (box*)malloc(max_number_boxes * sizeof(box));
     if(box_table == NULL){
         PANIC("failed to alocate memory for the box_table")
     }
-    /*inicializes the box table*/
+
+    
     for (size_t i = 0; i < max_number_boxes; i++) {
         memset(box_table[i].box_name, 0, MAX_BOX_NAME_LEN);
         box_table[i].has_publisher = 0; //simbolizes empty index
@@ -426,6 +427,24 @@ int main(int argc, char **argv) {
         box_table[i].empty = 0;
     }
 
+    /*-----Init the producer-consumer queue-----*/
+    
+    pc_queue = (pc_queue_t*)malloc(sizeof(pc_queue_t));
+    if(pc_queue == NULL)
+        PANIC("failed to allocate memory for the pc_queue")
+
+    pcq_create(pc_queue, 2 * max_sessions); //inicializes the pcq with twice the max_sessions
+
+    /*-----Init max_sessions of threads-----*/
+
+    pthread_t tid[max_sessions];
+
+    for(size_t i = 0; i < max_sessions; i++){
+        pthread_create(&tid[i], NULL, worker_thread, NULL);
+    }
+    
+    /*-----Create FIFO-----*/
+
     unlink(register_pipe_name);
 
     if(mkfifo(register_pipe_name, 0660) == -1) {
@@ -433,16 +452,14 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    // printf("argv[1] = %s\n", register_pipe_name); // debug
-    // printf("argv[2] = %d\n", max_sessions); // debug
-
+    /*-----Read from FIFO-----*/
 
     int register_pipe_fd_r = open(register_pipe_name, O_RDONLY);
     if(register_pipe_fd_r == -1){
         PANIC("error opening register_pipe");
     }
 
-    //printf("hear\n"); //debug
+    
 
     /*this is a trick so the read never returns 0*/
     int register_pipe_fd_w = open(register_pipe_name, O_WRONLY);
@@ -453,21 +470,24 @@ int main(int argc, char **argv) {
 
 
     while(1){
-        char message[MAX_MESSAGE_SIZE] = {0};
-        ssize_t message_size = read(register_pipe_fd_r, message, MAX_MESSAGE_SIZE);
-        if(message_size == -1) {
+        char request[MAX_MESSAGE_SIZE] = {0};
+        ssize_t request_size = read(register_pipe_fd_r, request, MAX_MESSAGE_SIZE);
+        if(request_size == -1) {
             WARN("error reading from register_pipe");
-        } else if (message_size == 0) {
+        } else if (request_size == 0) {
             PANIC("register_pipe closed"); //must not happen
         } else {
-            if(write(1, message, MAX_MESSAGE_SIZE) < 0)//debug
-                PANIC("mbroker: write debug");
-            printf("\n");
-            handle_request_general(message);
+            //handle_request_general(request);
+            pcq_enqueue(pc_queue, request); // inserts the request in the pcqueue
         }
     }
 
+    /*-----Destroy-----*/
+
     free(box_table);
+
+    pcq_destroy(pc_queue);
+    free(pc_queue);
 
     return 0;
 }
